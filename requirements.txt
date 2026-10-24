@@ -1,0 +1,8 @@
+streamlit
+pandas
+openpyxl
+python-docx
+python-barcode
+Pillow
+reportlab
+pymupdf

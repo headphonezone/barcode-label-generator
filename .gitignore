@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+graphify-out/
+SKU Barcode - backup before short names.xlsx
+~$*
+.streamlit/secrets.toml
+*.xlsx
