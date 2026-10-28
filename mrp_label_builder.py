@@ -34,7 +34,8 @@ ROWS_DOWN = 7
 LABELS_PER_PAGE = COLS_ACROSS * ROWS_DOWN  # 21
 
 # ---- Layout inside one label (mm, measured from the label's top-left) ----
-# Top to bottom: bars, details table (no barcode number).
+# Top to bottom: bars, details table (no barcode number). The block is centred
+# in the label both ways, so shorter text sits lower instead of hugging the top.
 PT_MM = 25.4 / 72
 # Margins are tight so all the text fits at 6 pt (checked against the full catalog)
 INNER_PAD_MM = 1.0              # left/right
@@ -43,7 +44,7 @@ BOTTOM_PAD_MM = 0.7
 BARCODE_GAP_MM = 0.5            # bars -> details table
 BARCODE_TOP_MM = TOP_PAD_MM + 0.3
 BARCODE_WIDTH_MM = 40.0
-BARCODE_HEIGHT_MM = 5.0
+BARCODE_HEIGHT_MM = 5.5
 TABLE_TOP_MM = BARCODE_TOP_MM + BARCODE_HEIGHT_MM + BARCODE_GAP_MM
 LEFT_COL_FRACTION = 0.40        # share of table width for the caption column
 
@@ -137,17 +138,21 @@ def _table_box_mm():
 
 
 def _draw_label(c, x0, y_top, info, barcode_img):
+    width, height = _table_box_mm()
+    table, h = fit_table(info, width, height)
 
-    # bars, centered
+    # bars + gap + table as one block, centred vertically in the label
+    block_mm = BARCODE_HEIGHT_MM + BARCODE_GAP_MM + h / mm
+    block_top = y_top - max(TOP_PAD_MM, (LABEL_HEIGHT_MM - block_mm) / 2) * mm
+
+    # bars, centred horizontally
     bc_x = x0 + (LABEL_WIDTH_MM - BARCODE_WIDTH_MM) / 2 * mm
-    bc_y = y_top - (BARCODE_TOP_MM + BARCODE_HEIGHT_MM) * mm
+    bc_y = block_top - BARCODE_HEIGHT_MM * mm
     c.drawImage(barcode_img, bc_x, bc_y, width=BARCODE_WIDTH_MM * mm,
                 height=BARCODE_HEIGHT_MM * mm, preserveAspectRatio=False, mask="auto")
 
     # details table under the bars
-    width, height = _table_box_mm()
-    table, h = fit_table(info, width, height)
-    table.drawOn(c, x0 + INNER_PAD_MM * mm, y_top - TABLE_TOP_MM * mm - h)
+    table.drawOn(c, x0 + INNER_PAD_MM * mm, bc_y - BARCODE_GAP_MM * mm - h)
 
 
 def _draw_outlines(c, top_margin_mm, left_margin_mm, vertical_pitch_mm):

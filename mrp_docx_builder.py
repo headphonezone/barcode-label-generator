@@ -11,7 +11,7 @@ logic (Times New Roman and reportlab's Times share metrics), with a little safet
 import io
 
 import docx
-from docx.enum.table import WD_ALIGN_VERTICAL, WD_ROW_HEIGHT_RULE
+from docx.enum.table import WD_ALIGN_VERTICAL, WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -24,7 +24,7 @@ from label_builder import (
 from mrp_label_builder import (
     TOP_MARGIN_MM, SIDE_MARGIN_MM, LABEL_WIDTH_MM, LABEL_HEIGHT_MM,
     HORIZONTAL_PITCH_MM, VERTICAL_PITCH_MM, COLS_ACROSS, ROWS_DOWN, LABELS_PER_PAGE,
-    INNER_PAD_MM, TOP_PAD_MM, BOTTOM_PAD_MM, BARCODE_GAP_MM, TABLE_TOP_MM,
+    INNER_PAD_MM, BOTTOM_PAD_MM, BARCODE_GAP_MM, TABLE_TOP_MM,
     BARCODE_WIDTH_MM, BARCODE_HEIGHT_MM,
     LEFT_COL_FRACTION, FONT_SIZES_PT, LINE_FACTOR, CELL_PAD_X_MM, CELL_PAD_Y_MM,
     IMPORTER_ADDRESS, IMPORTER_CONTACT, QUANTITY_TEXT, _build_table,
@@ -33,10 +33,12 @@ from reportlab.lib.units import mm as rl_mm
 
 FONT = "Times New Roman"
 GAP_WIDTH_MM = HORIZONTAL_PITCH_MM - LABEL_WIDTH_MM          # 2.5 mm between columns
+TRAILING_PARA_PT = 1                                         # the paragraph after each nested table
 # Height the details table may use in Word: label height minus what sits
 # above it (the bars) and the bottom margin. Word draws the table ~0.3 mm
 # taller than reportlab measures it (checked via Word -> PDF).
-WORD_TABLE_BUDGET_MM = LABEL_HEIGHT_MM - TABLE_TOP_MM - BOTTOM_PAD_MM - 0.3
+WORD_TABLE_EXTRA_MM = 0.3
+WORD_TABLE_BUDGET_MM = LABEL_HEIGHT_MM - TABLE_TOP_MM - BOTTOM_PAD_MM - WORD_TABLE_EXTRA_MM
 
 CAPTIONS = [
     "Name and address of Importer & Marketed by & Contact if Consumer Complaints",
@@ -50,15 +52,35 @@ def _mm_to_twips(v):
     return str(int(round(v / 25.4 * 1440)))
 
 
-def _set_cell_margins_mm(cell, top=0.0, bottom=0.0, left=0.0, right=0.0):
+# Word only honours tcPr children in schema order (an out-of-order vAlign or
+# tcMar is silently ignored), so every cell property goes through _put_tcpr.
+TCPR_ORDER = ["cnfStyle", "tcW", "gridSpan", "hMerge", "vMerge", "tcBorders", "shd",
+              "noWrap", "tcMar", "textDirection", "tcFitText", "vAlign", "hideMark"]
+
+
+def _put_tcpr(cell, el):
+    """Set one tcPr child, replacing any existing one, at its schema position."""
     tcPr = cell._tc.get_or_add_tcPr()
+    tag = el.tag
+    for old in tcPr.findall(tag):
+        tcPr.remove(old)
+    rank = TCPR_ORDER.index(tag.split("}")[1])
+    for child in tcPr:
+        name = child.tag.split("}")[1]
+        if name in TCPR_ORDER and TCPR_ORDER.index(name) > rank:
+            child.addprevious(el)
+            return
+    tcPr.append(el)
+
+
+def _set_cell_margins_mm(cell, top=0.0, bottom=0.0, left=0.0, right=0.0):
     mar = OxmlElement("w:tcMar")
     for tag, val in (("top", top), ("bottom", bottom), ("start", left), ("end", right)):
         node = OxmlElement(f"w:{tag}")
         node.set(qn("w:w"), _mm_to_twips(val))
         node.set(qn("w:type"), "dxa")
         mar.append(node)
-    tcPr.append(mar)
+    _put_tcpr(cell, mar)
 
 
 def _set_table_borders(table, val="single", size_eighths=2):
@@ -94,7 +116,6 @@ def _zero_table_offsets(table):
 
 
 def _set_cell_border(cell, color="9E9E9E"):
-    tcPr = cell._tc.get_or_add_tcPr()
     borders = OxmlElement("w:tcBorders")
     for edge in ("top", "left", "bottom", "right"):
         b = OxmlElement(f"w:{edge}")
@@ -102,7 +123,7 @@ def _set_cell_border(cell, color="9E9E9E"):
         b.set(qn("w:sz"), "2")
         b.set(qn("w:color"), color)
         borders.append(b)
-    tcPr.append(borders)
+    _put_tcpr(cell, borders)
 
 
 def _shade(cell, fill="D9D9D9"):
@@ -110,7 +131,7 @@ def _shade(cell, fill="D9D9D9"):
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), fill)
-    cell._tc.get_or_add_tcPr().append(shd)
+    _put_tcpr(cell, shd)
 
 
 def _fixed_layout(table):
@@ -148,22 +169,29 @@ def _details_font_pt(info, width_mm):
 
 def _fill_label(cell, info, barcode_stream, pic_inserter):
     inner_w = LABEL_WIDTH_MM - 2 * INNER_PAD_MM
-    _set_cell_margins_mm(cell, top=TOP_PAD_MM, left=INNER_PAD_MM, right=INNER_PAD_MM)
+    _set_cell_margins_mm(cell, left=INNER_PAD_MM, right=INNER_PAD_MM)
+    # Word ignores vertical centring in a cell holding a nested table, so the
+    # block (bars + gap + table) is centred by hand: the space above the bars
+    # is computed from the table's measured height, same as the PDF preview.
     cell.vertical_alignment = WD_ALIGN_VERTICAL.TOP
+    font_pt = _details_font_pt(info, inner_w)
+    _, table_h = _build_table(info, font_pt, inner_w).wrap(inner_w * rl_mm, LABEL_HEIGHT_MM * rl_mm)
+    block_mm = (BARCODE_HEIGHT_MM + BARCODE_GAP_MM + table_h / rl_mm
+                + WORD_TABLE_EXTRA_MM + TRAILING_PARA_PT * 25.4 / 72)
+    top_mm = max(0.0, (LABEL_HEIGHT_MM - block_mm) / 2)
 
-    # bars, at the top of the label (no barcode number)
+    # bars (no barcode number)
     p = cell.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     # single (not exact) spacing: an exact line shorter than the picture
     # would crop the bars
     _set_no_spacing(p)
-    p.paragraph_format.space_before = Pt(0.8)
+    p.paragraph_format.space_before = Mm(top_mm)
     p.paragraph_format.space_after = Mm(BARCODE_GAP_MM)
     barcode_stream.seek(0)
     pic_inserter.add_picture(p, barcode_stream, Mm(BARCODE_WIDTH_MM), Mm(BARCODE_HEIGHT_MM))
 
     # details table
-    font_pt = _details_font_pt(info, inner_w)
     values = [
         f"{info['importer']}, {IMPORTER_ADDRESS}\n{IMPORTER_CONTACT}",
         "\n".join([info["product_type"], info["model_name"], QUANTITY_TEXT,
@@ -175,6 +203,7 @@ def _fill_label(cell, info, barcode_stream, pic_inserter):
     widths = [Mm(left_w), Mm(inner_w - left_w)]
     t = cell.add_table(rows=len(CAPTIONS), cols=2)
     t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
     _fixed_layout(t)
     _set_table_borders(t)
     for col, w in zip(t.columns, widths):
@@ -196,7 +225,7 @@ def _fill_label(cell, info, barcode_stream, pic_inserter):
     p = cell.add_paragraph()
     _set_no_spacing(p)
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-    p.paragraph_format.line_spacing = Pt(1)
+    p.paragraph_format.line_spacing = Pt(TRAILING_PARA_PT)
 
 
 def _new_sheet_table(document, vertical_pitch_mm, show_outlines):
