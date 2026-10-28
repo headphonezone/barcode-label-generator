@@ -62,6 +62,7 @@ IMPORTER_ADDRESS = "63/18, 1st Main Road, Gandhi Nagar, Chennai-600020"
 IMPORTER_CONTACT = "Email: pks@ferrarivideo.com 044-24420733"
 
 PRODUCT_TYPES = [
+    "Headphone", "Amp/DAC", "TWS", "Case",
     "Headphone Amplifier", "Headphone DAC", "Headphone Amp/DAC", "Cable Accessory",
     "Digital Audio Player", "Headphone Accessory", "Speaker", "CD Audio Player",
     "Stereo Cassette Player",

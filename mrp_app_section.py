@@ -66,6 +66,7 @@ PRODUCT_TYPE_GUESSES = [
     (r"\bdac\b", "Headphone DAC"),
     (r"amplifier|\bamp\b", "Headphone Amplifier"),
     (r"accessor|eartip|earpad|\bcase\b", "Headphone Accessory"),
+    (r"\btws\b|true wireless", "TWS"),
 ]
 
 
