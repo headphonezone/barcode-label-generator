@@ -61,7 +61,11 @@ IMPORTER_NAMES = ["Ferrari Video", "Headphone Zone"]
 IMPORTER_ADDRESS = "63/18, 1st Main Road, Gandhi Nagar, Chennai-600020"
 IMPORTER_CONTACT = "Email: pks@ferrarivideo.com 044-24420733"
 
-PRODUCT_TYPES = ["Headphone", "Amp/DAC", "TWS", "Case"]
+PRODUCT_TYPES = [
+    "Headphone Amplifier", "Headphone DAC", "Headphone Amp/DAC", "Cable Accessory",
+    "Digital Audio Player", "Headphone Accessory", "Speaker", "CD Audio Player",
+    "Stereo Cassette Player",
+]
 QUANTITY_TEXT = "1 unit"
 
 CAPTIONS = [

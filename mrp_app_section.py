@@ -55,16 +55,28 @@ document.getElementById("p").onclick = () => {{
 </script>""", height=52)
 
 
+# (pattern, product type) -- first match wins, so the more specific come first
+PRODUCT_TYPE_GUESSES = [
+    (r"cassette", "Stereo Cassette Player"),
+    (r"\bcd\b", "CD Audio Player"),
+    (r"\bcable\b", "Cable Accessory"),
+    (r"audio player|\bdap\b", "Digital Audio Player"),
+    (r"speaker", "Speaker"),
+    (r"amp\s*(&|/|and)\s*dac", "Headphone Amp/DAC"),
+    (r"\bdac\b", "Headphone DAC"),
+    (r"amplifier|\bamp\b", "Headphone Amplifier"),
+    (r"accessor|eartip|earpad|\bcase\b", "Headphone Accessory"),
+]
+
+
 def guess_product_type(item):
-    """Pre-select the Product dropdown from the item name (still editable)."""
+    """Pre-select the Product dropdown from the item name (still editable).
+    None when nothing matches (e.g. plain headphones) -- the user picks."""
     low = item.lower()
-    if "tws" in low or "true wireless" in low:
-        return "TWS"
-    if re.search(r"\bamp|\bdac\b", low):
-        return "Amp/DAC"
-    if re.search(r"\bcase\b", low):
-        return "Case"
-    return "Headphone"
+    for pattern, product_type in PRODUCT_TYPE_GUESSES:
+        if re.search(pattern, low):
+            return product_type
+    return None
 
 
 def render_mrp_section(catalog_df):
@@ -116,8 +128,10 @@ def render_mrp_section(catalog_df):
     importer = st.selectbox("Importer & marketed by", IMPORTER_NAMES)
     st.caption(f"{IMPORTER_ADDRESS}  ·  {IMPORTER_CONTACT}")
 
+    guessed = guess_product_type(row["sku"])
     product_type = st.selectbox("Product", PRODUCT_TYPES,
-                                index=PRODUCT_TYPES.index(guess_product_type(row["sku"])),
+                                index=PRODUCT_TYPES.index(guessed) if guessed else None,
+                                placeholder="Choose the product type",
                                 key=f"mrp_type_{key}")
 
     today = datetime.date.today()
@@ -138,7 +152,7 @@ def render_mrp_section(catalog_df):
 
     if st.button("Add to list", type="primary", use_container_width=True, key="mrp_add"):
         missing = [name for name, val in (
-            ("Barcode", barcode_value), ("Model name", model_name), ("Month of import", month),
+            ("Barcode", barcode_value), ("Product", product_type or ""), ("Model name", model_name), ("Month of import", month),
             ("MRP", mrp), ("Manufacturer", manufacturer), ("Year of Mfg", year_of_mfg),
         ) if not str(val).strip()]
         if missing:
