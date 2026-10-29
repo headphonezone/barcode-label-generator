@@ -3,7 +3,6 @@ Streamlit UI for the 21L MRP / importer label (barcode on top, importer
 details table underneath). Called from app.py when "MRP label" is selected.
 """
 
-import base64
 import datetime
 import re
 
@@ -18,41 +17,13 @@ from mrp_label_builder import (
 )
 
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUNE", "JULY", "AUG", "SEPT", "OCT", "NOV", "DEC"]
-MAX_LABELS = LABELS_PER_PAGE * 10  # dropdown goes up to 10 full sheets
+MAX_LABELS = 1500
 
 
 def render_page_preview(pdf_data, dpi=110):
     """PNG of the PDF's first page, for the on-screen preview."""
     with pymupdf.open(stream=pdf_data, filetype="pdf") as doc:
         return doc[0].get_pixmap(dpi=dpi).tobytes("png")
-
-
-def render_print_button(pdf_data):
-    """Button that opens the browser's print dialog straight on the label PDF.
-
-    The PDF is drawn to the exact 21L geometry, so printing it skips Word and
-    its layout quirks entirely. Falls back to opening the PDF in a new tab
-    (print from there) if the browser blocks printing from the frame.
-    """
-    b64 = base64.b64encode(pdf_data).decode()
-    # HTML built here from our own PDF bytes only -- never user-supplied HTML
-    st.iframe(f"""
-<button id="p" style="width:100%;padding:.6rem;font-size:1rem;font-weight:600;border:0;
-  border-radius:.5rem;background:#ff4b4b;color:#fff;cursor:pointer">🖨️ Print labels</button>
-<script>
-document.getElementById("p").onclick = () => {{
-  const bytes = Uint8Array.from(atob("{b64}"), c => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], {{type: "application/pdf"}}));
-  const f = document.createElement("iframe");
-  f.style.display = "none";
-  f.src = url;
-  f.onload = () => {{
-    try {{ f.contentWindow.focus(); f.contentWindow.print(); }}
-    catch (e) {{ window.open(url, "_blank"); }}
-  }};
-  document.body.appendChild(f);
-}};
-</script>""", height=52)
 
 
 # (pattern, product type) -- first match wins, so the more specific come first
@@ -149,7 +120,8 @@ def render_mrp_section(catalog_df):
                                  placeholder="e.g. LINSOUL INC, NEW YORK")
     st.caption(f"Quantity on label: {QUANTITY_TEXT}")
 
-    qty = st.selectbox("Number of labels to print", list(range(1, MAX_LABELS + 1)), index=0)
+    qty = st.number_input("Number of labels to print", min_value=1, max_value=MAX_LABELS,
+                          value=1, step=1, key="mrp_qty")
 
     if st.button("Add to list", type="primary", use_container_width=True, key="mrp_add"):
         missing = [name for name, val in (
@@ -194,11 +166,11 @@ def render_mrp_section(catalog_df):
             st.rerun()
 
     total_labels = sum(i["qty"] for i in st.session_state.mrp_items)
-    start_position = st.selectbox(
+    start_position = int(st.number_input(
         "Start at label position on the first sheet",
-        list(range(1, LABELS_PER_PAGE + 1)), index=0,
+        min_value=1, max_value=LABELS_PER_PAGE, value=1, step=1, key="mrp_start_pos",
         help="Positions run left→right, top→bottom (1–21). Use this to reuse a partly used sheet.",
-    )
+    ))
     total_pages = (start_position - 1 + total_labels + LABELS_PER_PAGE - 1) // LABELS_PER_PAGE
     st.markdown(f"**Total labels: {total_labels}**  ·  **Sheets needed: {total_pages}** (21 labels/sheet)")
 
@@ -239,36 +211,21 @@ def render_mrp_section(catalog_df):
         entries = expand_mrp_entries(st.session_state.mrp_items)
         with st.spinner("Building MRP label sheet..."):
             docx_bytes = build_mrp_label_docx(entries, **sheet_args)
-            # the PDF is what gets printed and previewed -- exact 21L geometry
+            # the PDF is only rendered for the on-screen preview -- exact 21L geometry
             pdf_bytes = build_mrp_label_pdf(entries, **sheet_args).getvalue()
             preview = render_page_preview(pdf_bytes)
         st.success(f"Label sheet ready — {total_labels} labels.")
-        render_print_button(pdf_bytes)
-        st.caption("In the print dialog: paper **A4**, scale **100% / Actual size** "
-                   "(not 'Fit to page'), then print on the 21L sheet.")
-        dl1, dl2 = st.columns(2)
-        with dl1:
-            st.download_button(
-                label="⬇️ Download PDF",
-                data=pdf_bytes,
-                file_name="mrp_labels.pdf",
-                mime="application/pdf",
-                on_click="ignore",
-                use_container_width=True,
-            )
-        with dl2:
-            st.download_button(
-                label="⬇️ Download .docx",
-                data=docx_bytes,
-                file_name="mrp_labels.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                on_click="ignore",
-                use_container_width=True,
-            )
+        st.download_button(
+            label="⬇️ Download .docx",
+            data=docx_bytes,
+            file_name="mrp_labels.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            on_click="ignore",
+            use_container_width=True,
+        )
         st.image(preview, caption="Page 1 preview (A4)", width="stretch")
 
     st.divider()
     st.caption("NovaJet MPL 21L — 63.5 x 38 mm, 3 across x 7 down. "
-               "Printing with 🖨️ Print labels (or the PDF) gives the exact layout. "
                "From Word, keep scaling at 100% / 'No Scaling' (not 'Scale to paper size'); "
                "if Word warns that margins are outside the printable area, choose Ignore/Yes.")
