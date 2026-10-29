@@ -12,7 +12,8 @@ import streamlit as st
 from mrp_docx_builder import build_mrp_label_docx
 from mrp_label_builder import (
     build_mrp_label_pdf, expand_mrp_entries, label_overflows,
-    IMPORTER_NAMES, IMPORTER_ADDRESS, IMPORTER_CONTACT, PRODUCT_TYPES, QUANTITY_TEXT,
+    IMPORTER_NAMES, IMPORTER_ADDRESS, IMPORTER_CONTACT, MANUFACTURERS, PRODUCT_TYPES,
+    QUANTITY_TEXT,
     LABELS_PER_PAGE, TOP_MARGIN_MM, SIDE_MARGIN_MM, VERTICAL_PITCH_MM,
 )
 
@@ -116,8 +117,11 @@ def render_mrp_section(catalog_df):
     with c5:
         year_of_mfg = st.text_input("Year of Mfg", value=str(today.year))
 
-    manufacturer = st.text_input("Manufacturer's address & country of origin",
-                                 placeholder="e.g. LINSOUL INC, NEW YORK")
+    # from the importers ledger; a supplier not in the list can be typed in
+    manufacturer = st.selectbox("Manufacturer's address & country of origin", MANUFACTURERS,
+                                index=None, accept_new_options=True,
+                                placeholder="Choose or type the manufacturer",
+                                key=f"mrp_mfr_{key}") or ""
     st.caption(f"Quantity on label: {QUANTITY_TEXT}")
 
     qty = st.number_input("Number of labels to print", min_value=1, max_value=MAX_LABELS,
