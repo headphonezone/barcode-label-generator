@@ -29,6 +29,7 @@ def render_page_preview(pdf_data, dpi=110):
 
 # (pattern, product type) -- first match wins, so the more specific come first
 PRODUCT_TYPE_GUESSES = [
+    (r"vinyl|turntable|record player", "Vinyl Player"),
     (r"cassette", "Stereo Cassette Player"),
     (r"\bcd\b", "CD Audio Player"),
     (r"\bcable\b", "Cable Accessory"),

@@ -65,7 +65,7 @@ PRODUCT_TYPES = [
     "Headphone", "Amp/DAC", "TWS", "Case",
     "Headphone Amplifier", "Headphone DAC", "Headphone Amp/DAC", "Cable Accessory",
     "Digital Audio Player", "Headphone Accessory", "Speaker", "CD Audio Player",
-    "Stereo Cassette Player",
+    "Stereo Cassette Player", "Vinyl Player",
 ]
 QUANTITY_TEXT = "1 unit"
 
