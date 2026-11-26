@@ -69,14 +69,16 @@ PRODUCT_TYPES = [
 ]
 QUANTITY_TEXT = "1 unit"
 
-# From 'importers ledger.xlsx' -- "NAME, COUNTRY" for the manufacturer dropdown
+# Manufacturer dropdown: from 'importers ledger.xlsx', plus later additions
 MANUFACTURERS = [
+    '1964 EARS LLC - USA',
     'ABBINGDON HOLDINGS LIMITED, Hong Kong',
     'Audeze LLC, UK',
     'AUDIO LINE OUT LLC, USA',
     'BURSON AUDIO MELBOURNE PTY LTD, Australia',
     'Chord Electronics Ltd, UK',
     'Dan Clark Audio, USA',
+    'DD ELECTRONICS TECHNOLOGY CO., LTD - China',
     'Dekoni Audio, USA',
     'DONG GUAN SHI HUI ZU DIAN ZI KE, China',
     'DONGGUAN ALLYSAGE ELECTRONIC, China',
@@ -86,6 +88,7 @@ MANUFACTURERS = [
     'FELIKS AUDIO SP. Z O.O, EUROPE',
     'Final Inc, Japan',
     'FOCAL JM LAB, France',
+    'Guangzhou DIDA Acoustics Technology Co., Ltd - China',
     'GUANGZHOU NAPOULERN AUDIO, China',
     'HEDD Audio GmbH, Germany',
     'HIBY MUSIC LIMITED, Hong Kong',
@@ -93,6 +96,7 @@ MANUFACTURERS = [
     'HIFIMAN KUNSHAN TECHNOLOGY, USA',
     'HK JADE AUDIO TECHNOLOGY, China',
     'HK RUIFENGYUAN TECHNOLOGY CO LIMITED, Hong Kong',
+    'HK RUIFENGYUAN TECHNOLOGY CO., LTD - CHINA',
     'HL FOREIGN TRADE SERVICE DONGGUAN CO LTD, China',
     'Hongkong Benche Technology Co Ltd, Hong Kong',
     'HONGKONG IBASSO AUDIO LIMITED, Hong Kong',
